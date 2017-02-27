@@ -1,4 +1,4 @@
-defmodule Killalytics.KillmailListener do
+defmodule KillmailDispatch.KillmailListener do
   @moduledoc false
 
   use GenStage
@@ -8,7 +8,7 @@ defmodule Killalytics.KillmailListener do
   end
 
   def init(identifier) do
-    {:producer_consumer, identifier, subscribe_to: [Killalytics.KillmailBroadcaster]}
+    {:producer_consumer, identifier, subscribe_to: [KillmailDispatch.KillmailBroadcaster]}
   end
 
   def handle_events(mails, _from, identifier) do

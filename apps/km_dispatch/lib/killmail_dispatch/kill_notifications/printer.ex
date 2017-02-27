@@ -1,4 +1,4 @@
-defmodule Killalytics.KillNotifications.Printer do
+defmodule KillmailDispatch.KillNotifications.Printer do
   @moduledoc false
 
   def start_link(mail) do

@@ -1,9 +1,9 @@
-defmodule Killalytics.KillmailFeed do
+defmodule KillmailDispatch.KillmailFeed do
   @moduledoc """
   Listens for killmails fed from a live WebSocket pipe such as the one found in
   """
 
-  @km_config Application.get_env(:killalytics, :redisq_ws)
+  @km_config Application.get_env(:km_dispatch, :redisq_ws)
 
   @km_endpoint @km_config.endpoint
   @km_keepalive_time @km_config.keepalive
@@ -37,15 +37,15 @@ defmodule Killalytics.KillmailFeed do
 
   defp process_mails(socket) do
     # Repeatedly fetch killmails
-
+    # TODO: Define killmail schemas for Poison
      Task.start(__MODULE__, fn ->
               Process.sleep(:infinity)
-            end, [name: Killalytics.KillmailBroadcaster.JSONParser])
+            end, [name: KillmailDispatch.KillmailBroadcaster.JSONParser])
     case socket |> Socket.Web.recv(timeout: @km_keepalive_time) do
       { :ok, {:text, mail}} ->
         # We don't want to crash the socket listener if there's a JSON parser failure
         Task.start(fn ->
-          Killalytics.KillmailBroadcaster.sync_notify (Poison.Parser.parse! mail, keys: :atoms)
+          KillmailDispatch.KillmailBroadcaster.sync_notify (Poison.Parser.parse! mail, keys: :atoms)
         end)
       { :error, :timeout } ->
         # Send a ping to show we're still here

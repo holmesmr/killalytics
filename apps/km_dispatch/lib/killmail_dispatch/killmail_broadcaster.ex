@@ -1,4 +1,4 @@
-defmodule Killalytics.KillmailBroadcaster do
+defmodule KillmailDispatch.KillmailBroadcaster do
   @moduledoc false
 
   @broadcast_timeout 5000
