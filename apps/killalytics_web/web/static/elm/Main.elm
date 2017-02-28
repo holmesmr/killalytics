@@ -7,12 +7,16 @@ Entry point for Killalytics Web UI.
 
 
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import WebSocket
 import Date exposing (..)
+
 import Json.Decode exposing (..)
 import Json.Decode.Pipeline exposing (decode, required, optional)
-import Debug exposing (log)
+
+import Debug exposing (crash)
+
+import Phoenix
+import Phoenix.Socket as Socket
+import Phoenix.Channel as Channel
 
 
 type alias CharacterID   = Int
@@ -64,7 +68,7 @@ type GameAgent
 
 
 type alias KillMail =
-    { owner      : GameAgent
+    { victim     : GameAgent
     , value      : Float
     , ship       : Ship
     , killers    : List Pilot
@@ -87,12 +91,12 @@ dateDecode dateString =
 killMailDecoder : Decoder KillMail
 killMailDecoder =
   decode KillMail
-    |> Json.Decode.Pipeline.required "owner"    gameAgentDecoder
-    |> Json.Decode.Pipeline.required "value"    float
-    |> Json.Decode.Pipeline.required "ship"     shipDecoder
-    |> Json.Decode.Pipeline.required "killers"  (Json.Decode.list pilotDecoder)
-    |> Json.Decode.Pipeline.required "system"   solarSystemDecoder
-    |> Json.Decode.Pipeline.required "datetime" date
+    |> Json.Decode.Pipeline.required "victim"    gameAgentDecoder
+    |> Json.Decode.Pipeline.required "value"     float
+    |> Json.Decode.Pipeline.required "ship"      shipDecoder
+    |> Json.Decode.Pipeline.required "attackers" (Json.Decode.list pilotDecoder)
+    |> Json.Decode.Pipeline.required "system"    solarSystemDecoder
+    |> Json.Decode.Pipeline.required "datetime"  date
 
 
 gameAgentDecoder : Decoder GameAgent
@@ -153,13 +157,13 @@ solarSystemDecoder =
     |> Json.Decode.Pipeline.required "region" string
 
 
-parseKillMail : String -> Msg
+parseKillMail : Value -> Msg
 parseKillMail json =
-  case (decodeString killMailDecoder json) of
+  case (decodeValue killMailDecoder json) of
    Ok mail ->
-     NewKill mail
+     ParsedKill mail
    Err e ->
-     BadKillMail (Err e)
+     BadKillMail <| Err e
 
 
 {-| The entry point for the web app. -}
@@ -188,20 +192,23 @@ init =
 
 
 type Msg
-  = NewKill KillMail
+  = NewKill Value
+  | ParsedKill KillMail
   | BadKillMail (Result String Int)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg kills =
   case msg of
-    NewKill kill ->
-      ((kill :: kills), Cmd.none)
+    NewKill val ->
+      update (parseKillMail val) kills
+    ParsedKill kill ->
+      (List.sortBy (\i -> Date.toTime (.datetime i)) (kill :: kills), Cmd.none)
     BadKillMail e ->
       case e of
         Err inner ->
           -- TODO: Something other than crash
-          Debug.crash "Error parsing killmail"
+          crash "Error parsing killmail"
         _ ->
           (kills, Cmd.none)
 
@@ -209,9 +216,21 @@ update msg kills =
 -- SUBSCRIPTIONS
 
 
+socket : Socket.Socket msg
+socket =
+  Socket.init "ws://localhost:4000/socket/websocket"
+
+
+channel : Channel.Channel Msg
+channel =
+  Channel.init "killfeed"
+    -- register an handler for messages with a "new_msg" event
+    |> Channel.on "new_kill" NewKill
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  WebSocket.listen "ws://localhost:4000/killfeed" parseKillMail
+  Phoenix.connect socket [channel]
 
 
 -- VIEW
@@ -225,8 +244,8 @@ view model =
 
 viewKill : KillMail -> Html msg
 viewKill kill =
-  case kill.owner of
+  case kill.victim of
     PilotAgent pilot ->
-      span [] [ text pilot.name ]
+      p [] [ text pilot.name ]
     CorpAgent corporation ->
-      span [] [ text corporation.name ]
+      p [] [ text corporation.name ]

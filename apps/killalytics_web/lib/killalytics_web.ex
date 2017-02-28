@@ -1,6 +1,12 @@
 defmodule KillalyticsWeb do
   use Application
 
+  @listener_shutdown_timeout 1000
+
+  alias KillalyticsWeb.InletListener
+  alias KillalyticsWeb.KillmailInlet
+  alias KillmailDispatch.KillmailListener
+
   # See http://elixir-lang.org/docs/stable/elixir/Application.html
   # for more information on OTP Applications
   def start(_type, _args) do
@@ -14,6 +20,8 @@ defmodule KillalyticsWeb do
       supervisor(KillalyticsWeb.Endpoint, []),
       # Start your own worker by calling: KillalyticsWeb.Worker.start_link(arg1, arg2, arg3)
       # worker(KillalyticsWeb.Worker, [arg1, arg2, arg3]),
+      worker(KillmailListener, [InletListener], shutdown: @listener_shutdown_timeout, restart: :transient),
+      supervisor(KillmailInlet, [KillmailInlet], shutdown: :infinity, restart: :transient)
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html

@@ -45,7 +45,7 @@ defmodule KillmailDispatch.KillmailFeed do
       { :ok, {:text, mail}} ->
         # We don't want to crash the socket listener if there's a JSON parser failure
         Task.start(fn ->
-          KillmailDispatch.KillmailBroadcaster.sync_notify (Poison.Parser.parse! mail, keys: :atoms)
+          KillmailDispatch.KillmailBroadcaster.sync_notify (Poison.Parser.parse! mail)
         end)
       { :error, :timeout } ->
         # Send a ping to show we're still here

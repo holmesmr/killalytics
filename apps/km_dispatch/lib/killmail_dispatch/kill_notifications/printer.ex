@@ -8,11 +8,11 @@ defmodule KillmailDispatch.KillNotifications.Printer do
   end
 
   defp print_killmail(mail) do
-    attackers = mail.killmail.attackerCount
-    time = mail.killmail.killTime
-    corp = mail.killmail.victim.corporation.name
-    ship = mail.killmail.victim.shipType.name
-    system = mail.killmail.solarSystem.name
+    attackers = mail["killmail"]["attackerCount"]
+    time = mail["killmail"]["killTime"]
+    corp = mail["killmail"]["victim"]["corporation"]["name"]
+    ship = mail["killmail"]["victim"]["shipType"]["name"]
+    system = mail["killmail"]["solarSystem"]["name"]
 
     noun = case attackers do
       1 -> "foe"
