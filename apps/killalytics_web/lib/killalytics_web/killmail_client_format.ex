@@ -3,6 +3,7 @@ defmodule KillalyticsWeb.KillmailClientFormat do
 
   alias KillalyticsWeb.KillSchemaV1.Alliance
   alias KillalyticsWeb.KillSchemaV1.Corporation
+  alias KillalyticsWeb.KillSchemaV1.Faction
   alias KillalyticsWeb.KillSchemaV1.GameAgent
   alias KillalyticsWeb.KillSchemaV1.KillMail
   alias KillalyticsWeb.KillSchemaV1.Pilot
@@ -11,59 +12,75 @@ defmodule KillalyticsWeb.KillmailClientFormat do
 
   def format_killmail(mail) do
     %KillMail{
-      victim: format_victim(mail["killmail"]["victim"]),
+      id: mail["killmail"]["killID"],
+      victim: format_agent(mail["killmail"]["victim"]),
       value: mail["zkb"]["totalValue"],
-      ship: format_ship(mail["killmail"]["victim"]["shipType"]),
       attackers: format_attackers(mail["killmail"]["attackers"]),
       system: format_solar_system(mail["killmail"]["solarSystem"]),
       datetime: date_parse(mail["killmail"]["killTime"]),
     }
   end
 
-  def format_victim(victim) do
+  def format_agent(agent) do
     # Corp killmails have Character and Corp, Corp killmails don't
-    case Map.has_key? victim, "character" do
-      true ->
+    ship = format_ship agent["shipType"]
+    cond do
+      Map.has_key?(agent, "character") && agent["character"] != nil ->
         %GameAgent{
-          type:  "pilot",
-          pilot: format_pilot victim
+          type: "pilot",
+          agent: format_pilot(agent),
+          ship: ship
         }
-      false ->
+      Map.has_key?(agent, "corporation") && agent["corporation"] != nil ->
         %GameAgent{
           type: "corp",
-          corp: format_corp victim
+          agent: format_corp(agent),
+          ship: ship
+        }
+      Map.has_key?(agent, "faction") && agent["faction"] != nil ->
+        %GameAgent{
+          type: "faction",
+          agent: format_faction(agent),
+          ship: ship
         }
     end
   end
 
-  def format_pilot(victim) do
+  def format_pilot(agent) do
     %Pilot{
-      id: victim["character"]["id"],
-      name: victim["character"]["name"],
-      corporation: format_corp victim
+      id: agent["character"]["id"],
+      name: agent["character"]["name"],
+      corporation: format_corp agent
     }
   end
 
-  def format_corp(victim) do
+  def format_corp(agent) do
     corp = %Corporation{
-             id:     victim["corporation"]["id"],
-             name:   victim["corporation"]["name"],
+             id:     agent["corporation"]["id"],
+             name:   agent["corporation"]["name"],
              ticker: "TODO"
            }
 
-    case Map.has_key? victim, "alliance" do
+    case Map.has_key?(agent, "alliance") && agent["alliance"] != nil do
       true ->
-        %Corporation{corp | alliance: format_victim_alliance victim}
+        %Corporation{corp | alliance: format_alliance agent}
       false ->
         corp
     end
   end
 
-  def format_alliance(victim) do
+  def format_alliance(agent) do
     %Alliance{
-      id:     victim["alliance"]["id"],
-      name:   victim["alliance"]["name"],
+      id:     agent["alliance"]["id"],
+      name:   agent["alliance"]["name"],
       ticker: "TODO"
+    }
+  end
+
+  def format_faction(agent) do
+    %Faction{
+      id:     agent["faction"]["id"],
+      name:   agent["faction"]["name"]
     }
   end
 
@@ -83,14 +100,25 @@ defmodule KillalyticsWeb.KillmailClientFormat do
   end
 
   defp format_attackers([next | unprocessed], processed) do
-    format_attackers unprocessed, [format_pilot next | processed]
+    format_attackers unprocessed, [(format_agent next) | processed]
   end
 
   def format_solar_system(system) do
-    # TODO: IMPLEMENT
+    %SolarSystem{
+      id: system["id"],
+      name: system["name"],
+      region: "TODO"
+    }
   end
 
   defp date_parse(date) do
-    # TODO: IMPLEMENT
+    do_date_parse String.split(date, " ")
+  end
+
+  defp do_date_parse([date_str, time_str]) do
+    date = Date.from_iso8601! String.replace(date_str, ".", "-")
+    time = Time.from_iso8601! time_str
+    {:ok, dt} = NaiveDateTime.new date, time
+    NaiveDateTime.to_iso8601 dt
   end
 end
