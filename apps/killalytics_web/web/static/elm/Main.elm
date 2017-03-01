@@ -7,163 +7,21 @@ Entry point for Killalytics Web UI.
 
 
 import Html exposing (..)
+import Html.Attributes as Attr
 import Date exposing (..)
 
 import Json.Decode exposing (..)
-import Json.Decode.Pipeline exposing (decode, required, optional)
 
-import Debug exposing (crash)
+import Util.Logging exposing (..)
 
 import Phoenix
 import Phoenix.Socket as Socket
 import Phoenix.Channel as Channel
 
+import Schemas.KillmailV1 exposing (..)
+import Schemas.KillmailV1.Decoder exposing (..)
 
-type alias CharacterID   = Int
-type alias CorporationID = Int
-type alias AllianceID    = Int
-type alias ShipTypeID    = Int
-type alias ItemID        = Int
-type alias RegionID      = Int
-
-
-type alias Pilot =
-  { id          : CharacterID
-  , name        : String
-  , corporation : Corporation
-  }
-
-
-type alias Corporation =
-  { id       : CorporationID
-  , name     : String
-  , alliance : Maybe Alliance
-  , ticker   : String
-  }
-
-
-type alias Alliance =
-  { id       : AllianceID
-  , name     : String
-  , ticker   : String
-  }
-
-
-type alias Ship =
-  { id       : ShipTypeID
-  , name     : String
-  }
-
-
-type alias SolarSystem =
-  { id     : RegionID
-  , name   : String
-  , region : String
-  }
-
-
-type GameAgent
-  = PilotAgent Pilot
-  | CorpAgent Corporation
-
-
-type alias KillMail =
-    { victim     : GameAgent
-    , value      : Float
-    , ship       : Ship
-    , killers    : List Pilot
-    , system     : SolarSystem
-    , datetime   : Date
-    }
-
--- Simple Date decoder (probably not robust)
-date : Decoder Date.Date
-date = string |> Json.Decode.andThen dateDecode
-
-dateDecode : String -> Decoder Date.Date
-dateDecode dateString =
-  case (Date.fromString dateString) of
-    Ok date -> succeed date
-    _ -> fail "Couldn't parse date correctly!"
-
-
--- JSON Decoders
-killMailDecoder : Decoder KillMail
-killMailDecoder =
-  decode KillMail
-    |> Json.Decode.Pipeline.required "victim"    gameAgentDecoder
-    |> Json.Decode.Pipeline.required "value"     float
-    |> Json.Decode.Pipeline.required "ship"      shipDecoder
-    |> Json.Decode.Pipeline.required "attackers" (Json.Decode.list pilotDecoder)
-    |> Json.Decode.Pipeline.required "system"    solarSystemDecoder
-    |> Json.Decode.Pipeline.required "datetime"  date
-
-
-gameAgentDecoder : Decoder GameAgent
-gameAgentDecoder =
-  field "type" string
-    |> Json.Decode.andThen gameAgentDecodeByType
-
-gameAgentDecodeByType : String -> Decoder GameAgent
-gameAgentDecodeByType typeName =
-  case typeName of
-    "pilot" ->
-      Json.Decode.map PilotAgent (field "agent" pilotDecoder)
-    "corp" ->
-      Json.Decode.map CorpAgent (field "agent" corporationDecoder)
-    _ ->
-      fail <|
-        "Trying to decode GameAgent, but agent type "
-        ++ typeName ++ " is not known"
-
-
-pilotDecoder : Decoder Pilot
-pilotDecoder =
-  decode Pilot
-    |> Json.Decode.Pipeline.required "id"          int
-    |> Json.Decode.Pipeline.required "name"        string
-    |> Json.Decode.Pipeline.required "corporation" corporationDecoder
-
-
-corporationDecoder : Decoder Corporation
-corporationDecoder =
-  decode Corporation
-    |> Json.Decode.Pipeline.required "id"       int
-    |> Json.Decode.Pipeline.required "name"     string
-    |> Json.Decode.Pipeline.optional "alliance" (nullable allianceDecoder) Nothing
-    |> Json.Decode.Pipeline.required "ticker"   string
-
-
-allianceDecoder : Decoder Alliance
-allianceDecoder =
-  decode Alliance
-    |> Json.Decode.Pipeline.required "id"     int
-    |> Json.Decode.Pipeline.required "name"   string
-    |> Json.Decode.Pipeline.required "ticker" string
-
-
-shipDecoder : Decoder Ship
-shipDecoder =
-  decode Ship
-    |> Json.Decode.Pipeline.required "id"   int
-    |> Json.Decode.Pipeline.required "name" string
-
-
-solarSystemDecoder : Decoder SolarSystem
-solarSystemDecoder =
-  decode SolarSystem
-    |> Json.Decode.Pipeline.required "id"     int
-    |> Json.Decode.Pipeline.required "name"   string
-    |> Json.Decode.Pipeline.required "region" string
-
-
-parseKillMail : Value -> Msg
-parseKillMail json =
-  case (decodeValue killMailDecoder json) of
-   Ok mail ->
-     ParsedKill mail
-   Err e ->
-     BadKillMail <| Err e
+import Date.Format exposing (format)
 
 
 {-| The entry point for the web app. -}
@@ -203,14 +61,24 @@ update msg kills =
     NewKill val ->
       update (parseKillMail val) kills
     ParsedKill kill ->
-      (List.sortBy (\i -> Date.toTime (.datetime i)) (kill :: kills), Cmd.none)
+      let
+        _ = logInfo "Successfully parsed killmail" kill
+      in
+        (List.reverse (List.sortBy (\i -> Date.toTime (.datetime i)) (kill :: kills)), Cmd.none)
     BadKillMail e ->
-      case e of
-        Err inner ->
-          -- TODO: Something other than crash
-          crash "Error parsing killmail"
-        _ ->
-          (kills, Cmd.none)
+      let
+        _ = logError "Killmail parsing error" e
+      in
+        (kills, Cmd.none)
+
+
+parseKillMail : Value -> Msg
+parseKillMail json =
+  case (decodeValue killMailDecoder json) of
+   Ok mail ->
+     ParsedKill mail
+   Err e ->
+     BadKillMail <| Err e
 
 
 -- SUBSCRIPTIONS
@@ -245,7 +113,131 @@ view model =
 viewKill : KillMail -> Html msg
 viewKill kill =
   case kill.victim of
-    PilotAgent pilot ->
-      p [] [ text pilot.name ]
-    CorpAgent corporation ->
-      p [] [ text corporation.name ]
+    PilotAgent _ pilot ->
+      div
+        [ Attr.class "panel panel-danger pilot" ]
+        [ viewKillHeading "Player" kill
+        , div [ Attr.class "panel-body" ] [ viewKillSummary kill ]
+        , viewKillFooter kill ]
+    CorpAgent _ corp ->
+      div
+        [ Attr.class "panel panel-danger corp" ]
+        [ viewKillHeading "Structure" kill
+        , div [Attr.class "panel-body"] [ viewKillSummary kill ]
+        , viewKillFooter kill ]
+    FactionAgent _ faction ->
+      div
+        [ Attr.class "panel faction" ]
+        [ viewKillHeading "NPC" kill
+        , div [Attr.class "panel-body"] [ viewKillSummary kill ]
+        , viewKillFooter kill ]
+
+
+viewKillHeading : String -> KillMail -> Html msg
+viewKillHeading victimType kill =
+  div [Attr.class "panel-heading"]
+    [ span [Attr.class "action"] [text (victimType ++ " kill") ]
+    , text (" at " ++ format "%Y/%m/%d %H:%M:%S" kill.datetime ++ " in ")
+    , viewSystemLink kill.system ]
+
+
+viewKillSummary : KillMail -> Html msg
+viewKillSummary kill =
+  div [ Attr.class "kill-summary" ]
+    [ viewVictimPortrait kill.victim
+    , p [ Attr.class "cost" ] [ text ("Total killed: " ++ toString kill.value ++ " ISK") ]
+    , viewKillInfo kill ]
+
+
+viewKillFooter : KillMail -> Html msg
+viewKillFooter kill =
+  let
+    baseLinks = [ viewKillMailLink kill ]
+    links = case kill.victim of
+      PilotAgent _ pilot -> baseLinks ++ [ viewPlayerKillboardLink pilot ]
+      CorpAgent _ _ -> baseLinks ++ []
+      FactionAgent _ _ -> baseLinks ++ []
+  in
+    div [Attr.class "panel-footer"] [ul [ Attr.class "list-footer-links" ]
+      (List.map (\a -> li [] [a]) links) ]
+
+
+viewKillInfo : KillMail -> Html msg
+viewKillInfo kill =
+  div []
+    (case kill.victim of
+      PilotAgent ship pilot -> [p [] [viewPlayerKillboardLink pilot], p [] [viewCorpKillboardLink pilot.corporation]]
+      CorpAgent ship corp -> []
+      FactionAgent ship faction -> [])
+
+
+
+viewKillMailLink : KillMail -> Html msg
+viewKillMailLink kill =
+  a
+    [ Attr.href ("https://zkillboard.com/kills/" ++ (toString kill.id))
+    , Attr.target "_blank" ]
+
+    [text "Killmail"]
+
+
+viewPlayerKillboardLink : Pilot -> Html msg
+viewPlayerKillboardLink pilot =
+  viewNewTabLink
+    ("https://zkillboard.com/character/" ++ (toString pilot.id))
+    ("Victim Killboard")
+
+
+viewCorpKillboardLink : Corporation -> Html msg
+viewCorpKillboardLink corp =
+  viewNewTabLink
+    ("https://zkillboard.com/corporation/" ++ (toString corp.id))
+    corp.name
+
+
+viewSystemLink : SolarSystem -> Html msg
+viewSystemLink system =
+  viewNewTabLink
+    ("http://evemaps.dotlan.net/system/" ++ (String.split " " system.name |> String.join "_"))
+    system.name
+
+
+viewVictimPortrait : GameAgent -> Html msg
+viewVictimPortrait agent =
+  case agent of
+    PilotAgent _ pilot -> viewPlayerPortrait pilot
+    CorpAgent _ corp -> viewCorporationPortrait corp
+    FactionAgent _ faction -> viewFactionPortrait faction
+
+
+viewPlayerPortrait : Pilot -> Html msg
+viewPlayerPortrait pilot =
+  viewPortraitImage "Character" (toString pilot.id)
+
+
+viewCorporationPortrait : Corporation -> Html msg
+viewCorporationPortrait corp =
+  viewPortraitImage "Corporation" (toString corp.id)
+
+
+viewFactionPortrait : Faction -> Html msg
+viewFactionPortrait faction =
+  viewPortraitImage "Alliance" (toString faction.id)
+
+
+viewPortraitImage : String -> String -> Html msg
+viewPortraitImage typeName imageId =
+  img
+    [ Attr.style [("width", "128px"), ("height", "128px")]
+    , Attr.class "portrait"
+    , Attr.src ("https://imageserver.eveonline.com/" ++ typeName ++ "/" ++ imageId ++ "_128.jpg") ]
+    []
+
+
+viewNewTabLink : String -> String -> Html msg
+viewNewTabLink url label =
+  a
+    [ Attr.href url
+    , Attr.target "_blank" ]
+
+    [text label]
