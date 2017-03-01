@@ -1,1 +1,36 @@
 /* This file is for your main application css. */
+
+ul.list-footer-links {
+	padding: 0;
+	margin: 0;
+}
+
+ul.list-footer-links > li,
+ul.list-footer-links > li:not(:last-of-type):after {
+	display: inline-block;
+}
+
+ul.list-footer-links > li {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+ul.list-footer-links > li img.portrait {
+	float: left;
+}
+
+.kill-summary {
+	position: relative;
+}
+
+.kill-summary .cost {
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+
+ul.list-footer-links > li:not(:last-of-type):after {
+	content: '-';
+	padding: 0 0.5em;
+}

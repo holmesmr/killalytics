@@ -7,19 +7,16 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>Hello KillalyticsWeb!</title>
+    <title>Killalytics Tick Ticker</title>
     <link rel="stylesheet" href="<%= static_path(@conn, "/css/app.css") %>">
   </head>
 
   <body>
     <div class="container">
       <header class="header">
-        <nav role="navigation">
-          <ul class="nav nav-pills pull-right">
-            <li><a href="http://www.phoenixframework.org/docs">Get Started</a></li>
-          </ul>
-        </nav>
-        <span class="logo"></span>
+        <h1><strong>Kill</strong>alytics
+        <h2>Live(ish) killfeed</h2>
+        <p>Powered by ZKillboard RedisQ. There will be a variable delay while ZKillboard processes mails. Old killmails may be shown as Zkillboard reprocesses them.</p>
       </header>
 
       <p class="alert alert-info" role="alert"><%= get_flash(@conn, :info) %></p>

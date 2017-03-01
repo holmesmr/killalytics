@@ -7,7 +7,7 @@ defmodule KillalyticsWeb.KillmailInlet do
   use ConsumerSupervisor
 
   alias KillalyticsWeb.InletListener
-  alias Killalytics.PubSubDispatch
+  alias KillalyticsWeb.PubSubDispatch
 
   def init(identifier) do
     {:consumer, identifier}

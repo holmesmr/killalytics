@@ -20,11 +20,13 @@ defmodule KillmailDispatch.KillNotifications.Printer do
     end
 
     # Some structures don't have characters (citadels, towers, etc)
-    case mail.killmail.victim.character do
+    case mail["killmail"]["victim"]["character"] do
       nil
-        -> IO.puts "#{ship} belonging to #{corp} destroyed in #{system} by #{attackers} foes at #{time}"
+        ->
+        IO.puts "#{ship} belonging to #{corp} destroyed in #{system} by #{attackers} foes at #{time}"
       character
-        -> IO.puts "#{ship} belonging to #{character.name} (#{corp}) destroyed in #{system} by #{attackers} #{noun} at #{time}"
+        ->
+        IO.puts "#{ship} belonging to #{character["name"]} (#{corp}) destroyed in #{system} by #{attackers} #{noun} at #{time}"
     end
   end
 end

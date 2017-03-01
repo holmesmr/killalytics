@@ -12,8 +12,17 @@ defmodule KillalyticsWeb.KillSchemaV1.Corporation do
 
   @derive [Poison.Encoder]
 
-  @enforce_keys [:id, :name, :alliance, :ticker]
-  defstruct [:id, :name, :ticker]
+  @enforce_keys [:id, :name, :ticker]
+  defstruct [:id, :name, :alliance, :ticker]
+end
+
+defmodule KillalyticsWeb.KillSchemaV1.Faction do
+  @moduledoc false
+
+  @derive [Poison.Encoder]
+
+  @enforce_keys [:id, :name]
+  defstruct [:id, :name]
 end
 
 defmodule KillalyticsWeb.KillSchemaV1.GameAgent do
@@ -21,8 +30,8 @@ defmodule KillalyticsWeb.KillSchemaV1.GameAgent do
 
   @derive [Poison.Encoder]
 
-  @enforce_keys [:id]
-  defstruct [:id, :pilot, :corp]
+  @enforce_keys [:type, :agent, :ship]
+  defstruct [:type, :agent, :ship]
 end
 
 defmodule KillalyticsWeb.KillSchemaV1.Pilot do
@@ -57,6 +66,6 @@ defmodule KillalyticsWeb.KillSchemaV1.KillMail do
 
   @derive [Poison.Encoder]
 
-  @enforce_keys [:victim, :value, :ship, :attackers, :system, :datetime]
-  defstruct [:victim, :value, :ship, :attackers, :system, :datetime]
+  @enforce_keys [:id, :victim, :value, :attackers, :system, :datetime]
+  defstruct [:id, :victim, :value, :attackers, :system, :datetime]
 end
