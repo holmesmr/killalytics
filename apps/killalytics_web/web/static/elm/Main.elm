@@ -23,6 +23,8 @@ import Schemas.KillmailV1.Decoder exposing (..)
 
 import Date.Format exposing (format)
 
+import Native.Endpoint
+
 
 {-| The entry point for the web app. -}
 main : Program Never Model Msg
@@ -83,10 +85,13 @@ parseKillMail json =
 
 -- SUBSCRIPTIONS
 
+websocketUrl : String -> String
+websocketUrl = Native.Endpoint.wsUrl
+
 
 socket : Socket.Socket msg
 socket =
-  Socket.init "ws://localhost:4000/socket/websocket"
+  Socket.init (websocketUrl "socket/websocket")
 
 
 channel : Channel.Channel Msg
@@ -145,8 +150,8 @@ viewKillSummary : KillMail -> Html msg
 viewKillSummary kill =
   div [ Attr.class "kill-summary" ]
     [ viewVictimPortrait kill.victim
-    , p [ Attr.class "cost" ] [ text ("Total killed: " ++ toString kill.value ++ " ISK") ]
-    , viewKillInfo kill ]
+    , viewKillInfo kill
+    , p [ Attr.class "cost" ] [ text ("Total killed: " ++ toString kill.value ++ " ISK") ] ]
 
 
 viewKillFooter : KillMail -> Html msg
@@ -154,8 +159,8 @@ viewKillFooter kill =
   let
     baseLinks = [ viewKillMailLink kill ]
     links = case kill.victim of
-      PilotAgent _ pilot -> baseLinks ++ [ viewPlayerKillboardLink pilot ]
-      CorpAgent _ _ -> baseLinks ++ []
+      PilotAgent _ pilot -> baseLinks ++ [ viewPlayerEveWhoLink pilot, viewPlayerEveGateLink pilot ]
+      CorpAgent _ corp -> baseLinks ++ [ viewCorpEveWhoLink corp, viewCorpEveGateLink corp ]
       FactionAgent _ _ -> baseLinks ++ []
   in
     div [Attr.class "panel-footer"] [ul [ Attr.class "list-footer-links" ]
@@ -164,18 +169,33 @@ viewKillFooter kill =
 
 viewKillInfo : KillMail -> Html msg
 viewKillInfo kill =
-  div []
+  div [ Attr.class "kill-info" ]
     (case kill.victim of
-      PilotAgent ship pilot -> [p [] [viewPlayerKillboardLink pilot], p [] [viewCorpKillboardLink pilot.corporation]]
-      CorpAgent ship corp -> []
+      PilotAgent ship pilot ->
+        [ h3 [] [ text "Victim" ]
+        , p [] [ text "Character: ", viewPlayerKillboardLink pilot ]
+        , p [] [ text "Corporation: ", viewCorpKillboardLink pilot.corporation ] ]
+        ++ viewAlliance pilot.corporation
+        ++ [ p [] [ text ("Ship: " ++ ship.name) ] ]
+      CorpAgent ship corp ->
+        [ h3 [] [ text "Lost Structure" ]
+        , p [] [ text ("Type: " ++ ship.name) ]
+        , p [] [ text "Owner: ", viewCorpKillboardLink corp ] ]
+        ++ viewAlliance corp
       FactionAgent ship faction -> [])
 
+
+viewAlliance : Corporation -> List (Html msg)
+viewAlliance corp =
+  case corp.alliance of
+    Just alliance -> [ text "Alliance: ", viewAllianceKillboardLink alliance ]
+    Nothing -> []
 
 
 viewKillMailLink : KillMail -> Html msg
 viewKillMailLink kill =
   a
-    [ Attr.href ("https://zkillboard.com/kills/" ++ (toString kill.id))
+    [ Attr.href ("https://zkillboard.com/kill/" ++ (toString kill.id))
     , Attr.target "_blank" ]
 
     [text "Killmail"]
@@ -185,7 +205,7 @@ viewPlayerKillboardLink : Pilot -> Html msg
 viewPlayerKillboardLink pilot =
   viewNewTabLink
     ("https://zkillboard.com/character/" ++ (toString pilot.id))
-    ("Victim Killboard")
+    pilot.name
 
 
 viewCorpKillboardLink : Corporation -> Html msg
@@ -195,11 +215,46 @@ viewCorpKillboardLink corp =
     corp.name
 
 
+viewAllianceKillboardLink : Alliance -> Html msg
+viewAllianceKillboardLink alliance =
+  viewNewTabLink
+    ("https://zkillboard.com/alliance/" ++ (toString alliance.id))
+    alliance.name
+
+
 viewSystemLink : SolarSystem -> Html msg
 viewSystemLink system =
   viewNewTabLink
     ("http://evemaps.dotlan.net/system/" ++ (String.split " " system.name |> String.join "_"))
     system.name
+
+
+viewPlayerEveWhoLink : Pilot -> Html msg
+viewPlayerEveWhoLink pilot =
+  viewNewTabLink
+    ("https://evewho.com/pilot/" ++ (String.split " " pilot.name |> String.join "+"))
+    "Eve-Who"
+
+
+viewPlayerEveGateLink : Pilot -> Html msg
+viewPlayerEveGateLink pilot =
+  viewNewTabLink
+    ("https://gate.eveonline.com/Profile/" ++ pilot.name)
+    "Eve-Gate"
+
+
+viewCorpEveWhoLink : Corporation -> Html msg
+viewCorpEveWhoLink corp =
+  viewNewTabLink
+    ("https://evewho.com/corporation/" ++ (String.split " " corp.name |> String.join "+"))
+    "Eve-Who"
+
+
+viewCorpEveGateLink : Corporation -> Html msg
+viewCorpEveGateLink corp =
+  viewNewTabLink
+    ("https://gate.eveonline.com/Corporation/" ++ corp.name)
+    "Eve-Gate"
 
 
 viewVictimPortrait : GameAgent -> Html msg
@@ -212,25 +267,25 @@ viewVictimPortrait agent =
 
 viewPlayerPortrait : Pilot -> Html msg
 viewPlayerPortrait pilot =
-  viewPortraitImage "Character" (toString pilot.id)
+  viewPortraitImage "Character" (toString pilot.id) "jpg"
 
 
 viewCorporationPortrait : Corporation -> Html msg
 viewCorporationPortrait corp =
-  viewPortraitImage "Corporation" (toString corp.id)
+  viewPortraitImage "Corporation" (toString corp.id) "png"
 
 
 viewFactionPortrait : Faction -> Html msg
 viewFactionPortrait faction =
-  viewPortraitImage "Alliance" (toString faction.id)
+  viewPortraitImage "Alliance" (toString faction.id) "png"
 
 
-viewPortraitImage : String -> String -> Html msg
-viewPortraitImage typeName imageId =
+viewPortraitImage : String -> String -> String -> Html msg
+viewPortraitImage typeName imageId format =
   img
     [ Attr.style [("width", "128px"), ("height", "128px")]
     , Attr.class "portrait"
-    , Attr.src ("https://imageserver.eveonline.com/" ++ typeName ++ "/" ++ imageId ++ "_128.jpg") ]
+    , Attr.src ("https://imageserver.eveonline.com/" ++ typeName ++ "/" ++ imageId ++ "_128." ++ format) ]
     []
 
 

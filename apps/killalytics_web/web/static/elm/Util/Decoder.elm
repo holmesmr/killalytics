@@ -4,7 +4,6 @@ module Util.Decoder exposing (date, dateDecode)
 import Date exposing (..)
 
 import Json.Decode exposing (..)
-import Json.Decode.Pipeline exposing (decode, required, optional)
 
 date : Decoder Date.Date
 date = string |> Json.Decode.andThen dateDecode

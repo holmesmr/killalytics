@@ -36,8 +36,8 @@ config :phoenix, :stacktrace_depth, 20
 # Configure your database
 config :killalytics_web, KillalyticsWeb.Repo,
   adapter: Ecto.Adapters.Postgres,
-  username: "michael",
-  password: "",
+  username: "cepheus",
+  password: "21secs",
   database: "killalytics_web_dev",
   hostname: "localhost",
   pool_size: 10

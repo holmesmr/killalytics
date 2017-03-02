@@ -25,12 +25,32 @@ ul.list-footer-links > li img.portrait {
 }
 
 .kill-summary .cost {
-	position: absolute;
-	top: 0;
-	right: 0;
+    float: right;
+    vertical-align: top;
 }
+
+.kill-summary .kill-info {
+    display: inline-block;
+    padding: 0 10px;
+}
+
+
+.kill-summary .kill-info h3,
+.kill-summary .kill-info p {
+    margin: 0;
+}
+
+.kill-summary .kill-info h3 {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
 
 ul.list-footer-links > li:not(:last-of-type):after {
 	content: '-';
 	padding: 0 0.5em;
+}
+
+span.action {
+    font-weight: bold;
 }
