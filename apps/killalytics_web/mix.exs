@@ -23,7 +23,7 @@ defmodule KillalyticsWeb.Mixfile do
   def application do
     [mod: {KillalyticsWeb, []},
      applications: [:phoenix, :phoenix_pubsub, :phoenix_html, :cowboy, :logger, :gettext,
-                    :phoenix_ecto, :postgrex]]
+                    :phoenix_ecto, :postgrex, :km_dispatcher]]
   end
 
   # Specifies which paths to compile per environment.
